@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -35,6 +36,13 @@ func main() {
 	r.GET("/api/v1/todos/:id", GetHandler)
 
 	r.POST("/api/v1/todos", InsertHandler)
+
+	r.PUT("/api/v1/todos/:id", PutHandler)
+
+	r.DELETE("/api/v1/todos/:id", DeleteHandler)
+
+	r.PATCH("/api/v1/todos/:id/action/status", PatchStatusHandler)
+	r.PATCH("/api/v1/todos/:id/action/title", PatchTitleHandler)
 
 	srv := http.Server{
 		Addr:    ":" + os.Getenv("PORT"),
@@ -147,5 +155,92 @@ func InsertHandler(ctx *gin.Context) {
 		log.Println("Error while scan id", err)
 	}
 	ctx.JSON(http.StatusOK, result)
+}
 
+func PutHandler(ctx *gin.Context) {
+	id := ctx.Param("id")
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, "Incorrect input")
+	}
+	var todo Todo
+	err = ctx.ShouldBindJSON(&todo)
+	if err != nil {
+		log.Println("Error while binding request body", err)
+	}
+
+	if _, err := db.Exec("UPDATE todos SET title=$2,status=$3 WHERE id=$1;", idInt, todo.Title, todo.Status); err != nil {
+		log.Println("error execute update ", err)
+	}
+
+	ctx.JSON(http.StatusOK, Todo{idInt, todo.Title, todo.Status})
+}
+
+func DeleteHandler(ctx *gin.Context) {
+	id := ctx.Param("id")
+	idInt, err := strconv.Atoi(id)
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, "Incorrect input")
+	}
+
+	q := "DELETE FROM todos WHERE id=$1"
+	_, err = db.Exec(q, idInt)
+
+	if err != nil {
+		log.Println("Error while delete row", err)
+	}
+
+	ctx.JSON(http.StatusOK, "successful")
+
+}
+
+func PatchStatusHandler(ctx *gin.Context) {
+	id := ctx.Param("id")
+	idInt, err := strconv.Atoi(id)
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, "Incorrect input")
+	}
+
+	var todo Todo
+	err = ctx.ShouldBindJSON(&todo)
+	if err != nil {
+		log.Println("Error while binding request body", err)
+	}
+
+	if _, err := db.Exec("UPDATE todos SET status=$2 WHERE id=$1;", idInt, todo.Status); err != nil {
+		log.Println("error execute update ", err)
+	}
+
+	ctx.JSON(http.StatusOK, struct {
+		Status string
+	}{
+		Status: todo.Status,
+	})
+}
+
+func PatchTitleHandler(ctx *gin.Context) {
+	id := ctx.Param("id")
+	idInt, err := strconv.Atoi(id)
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, "Incorrect input")
+	}
+
+	var todo Todo
+	err = ctx.ShouldBindJSON(&todo)
+	if err != nil {
+		log.Println("Error while binding request body", err)
+	}
+
+	if _, err := db.Exec("UPDATE todos SET title=$2 WHERE id=$1;", idInt, todo.Title); err != nil {
+		log.Println("error execute update ", err)
+	}
+
+	ctx.JSON(http.StatusOK, struct {
+		Title string
+	}{
+		Title: todo.Title,
+	})
 }
