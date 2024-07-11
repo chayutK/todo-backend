@@ -9,8 +9,14 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func DatabaseSync() *sql.DB {
-	db, err := sql.Open("postgres", os.Getenv("DATABASE_URI"))
+var DB *sql.DB
+
+func Sync() {
+	DB = database()
+}
+
+func database() *sql.DB {
+	db, err := sql.Open("postgres", os.Getenv("POSTGRES_URI"))
 
 	if err != nil {
 		log.Fatal("Connection to database error", err)
